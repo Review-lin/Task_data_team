@@ -42,8 +42,7 @@ export async function deleteTask(input) {
   return mutateTasks((tasks) => {
     const index = tasks.findIndex((item) => item.id === id);
     if (index === -1) throw new HttpError(404, "タスクが見つかりません。", "NOT_FOUND");
-    tasks.splice(index, 1);
-    return null;
+    return tasks.splice(index, 1)[0];
   });
 }
 

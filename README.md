@@ -6,7 +6,7 @@ Netlifyで動作する、データチーム専用の1ユーザー向けタスク
 
 - `netlify/`：公開されるHTML、CSS、JavaScript
 - `netlify-functions/`：ログイン、セッション、タスク操作を行うサーバー処理
-- Netlify環境変数：ユーザー名、パスワード、セッション署名用の秘密値
+- Netlify環境変数：ログイン情報、セッション署名、プッシュ通知用VAPID鍵
 - Netlify Blobs：`task-manage-datateam-data` 内の非公開 `tasks.csv`
 - `netlify/config.js`：公開してよい担当者名だけを管理
 
@@ -39,17 +39,27 @@ openssl rand -base64 48
 1. GitHubリポジトリをNetlifyへ取り込みます。
 2. `netlify.toml` が自動で読み込まれるため、ビルドコマンドは不要です。
 3. **Project configuration → Environment variables** を開きます。
-4. 次の3項目を追加し、対象範囲に **Functions** を含めます。
+4. 次の6項目を追加し、対象範囲に **Functions** を含めます。
 
 ```text
 AUTH_USERNAME=Netlifyで設定する非公開ユーザー名
 AUTH_PASSWORD=12文字以上の非公開パスワード
 SESSION_SECRET=opensslで作成した32文字以上の秘密値
+VAPID_PUBLIC_KEY=生成した公開鍵
+VAPID_PRIVATE_KEY=生成した秘密鍵
+VAPID_SUBJECT=実在する連絡先のmailto URI
 ```
 
 5. 環境変数を追加または変更した後は、本番環境を再デプロイします。
 
-これらの値を `config.js`、`netlify.toml`、GitHub、画面側ファイルへ書かないでください。
+VAPID鍵は次のコマンドで一度だけ生成します。鍵を再生成すると、登録済み端末の通知が無効になります。
+
+```bash
+npm install
+npx web-push generate-vapid-keys --json
+```
+
+`VAPID_SUBJECT` には `mailto:` から始まる実在の管理者メールアドレスを設定します。環境変数の実際の値を `config.js`、`netlify.toml`、GitHub、説明書へ書かないでください。公開鍵だけは、ログイン後にFunctionsからブラウザーへ安全に渡されます。
 
 ## 4. ログインしてCSVを作成する
 
@@ -62,6 +72,15 @@ ID,Title,Description,Owner,Priority,Status,CreatedAt
 ```
 
 CSVを確認またはダウンロードする場合は、Netlifyの **Data & Storage → Blobs → task-manage-datateam-data → tasks.csv** を開きます。
+
+## 5. PWAとプッシュ通知
+
+- 対応ブラウザーでは、画面上部のインストールボタンからアプリとして追加できます。
+- 通知ベルを押すと、ブラウザーの許可画面が表示されます。
+- 許可後は、登録済み端末へタスクの追加、更新、完了、削除を通知します。
+- 通知ベルをもう一度押すと、その端末の通知登録を解除します。
+- iPhoneとiPadでは、先にホーム画面へアプリを追加してから通知を許可してください。
+- 通知本文にはタスクのタイトルが表示されるため、端末のロック画面での通知表示設定にも注意してください。
 
 ## ローカルで確認する
 
@@ -86,7 +105,8 @@ Netlify DevのCSVデータは本番環境と別に保存されます。ローカ
 - 入力値の長さと選択値をサーバー側で検証します。
 - カンマ、引用符、改行を含む文章を安全にCSVへ保存できます。
 - 数式として解釈される可能性がある入力を無効化します。
-- 画面側は `AUTH_USERNAME`、`AUTH_PASSWORD`、`SESSION_SECRET` を読み取りません。
+- 画面側は `AUTH_USERNAME`、`AUTH_PASSWORD`、`SESSION_SECRET`、`VAPID_PRIVATE_KEY` を読み取りません。
+- 通知登録はログイン後だけ許可され、最大10端末まで非公開Blobへ保存します。
 
 `SESSION_SECRET` を変更すると、現在の全セッションを直ちに無効化できます。パスワードが漏れた可能性がある場合は、`AUTH_PASSWORD` と `SESSION_SECRET` の両方を変更してください。
 
@@ -98,9 +118,10 @@ npm run check
 
 ## 問題がある場合
 
-- **サーバー設定エラー**：3つの環境変数とFunctionsの対象範囲を確認し、再デプロイしてください。
+- **サーバー設定エラー**：6つの環境変数とFunctionsの対象範囲を確認し、再デプロイしてください。
 - **ログインできない**：ユーザー名とパスワードは大文字・小文字を区別します。
 - **ログイン試行上限**：15分待ってから再度ログインしてください。
 - **Functionsが見つからない**：リポジトリのルートからNetlifyへ取り込み、`netlify.toml` が検出されているか確認してください。
 - **同時更新エラー**：画面を再読み込みしてから、もう一度操作してください。
 - **CSVが見つからない**：CSVは最初のタスク追加時に作成されます。
+- **通知ボタンでエラー**：VAPIDの3項目、HTTPS、ブラウザーの通知権限を確認してください。

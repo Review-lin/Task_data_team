@@ -6,6 +6,9 @@ const state = {
   tasks: [],
   deleteId: "",
   busy: false,
+  serviceWorkerRegistration: null,
+  installPrompt: null,
+  vapidPublicKey: "",
 };
 
 const el = {};
@@ -14,13 +17,15 @@ document.addEventListener("DOMContentLoaded", () => {
   cacheElements();
   bindEvents();
   setDateGreeting();
+  initializePwa();
   checkSession();
 });
 
 function cacheElements() {
   [
     "auth-view", "app-view", "login-form", "login-username", "login-password",
-    "login-button", "auth-message", "user-name", "signout-button", "today-label", "day-period",
+    "login-button", "auth-message", "user-name", "signout-button", "install-button",
+    "notification-button", "today-label", "day-period",
     "progress-copy", "progress-percent", "progress-count", "progress-bar",
     "task-total", "task-list", "empty-state", "empty-title", "empty-copy",
     "add-task-button", "empty-add-button", "status-filter", "priority-filter", "owner-filter",
@@ -34,6 +39,8 @@ function cacheElements() {
 function bindEvents() {
   el.loginForm.addEventListener("submit", login);
   el.signoutButton.addEventListener("click", signOut);
+  el.installButton.addEventListener("click", installPwa);
+  el.notificationButton.addEventListener("click", togglePushNotifications);
   el.addTaskButton.addEventListener("click", () => openTaskDialog());
   el.emptyAddButton.addEventListener("click", () => openTaskDialog());
   el.closeDialog.addEventListener("click", closeTaskDialog);
@@ -112,6 +119,7 @@ function showApp() {
   el.authView.hidden = true;
   el.appView.hidden = false;
   renderTasks();
+  refreshNotificationState();
 }
 
 async function signOut() {
@@ -136,6 +144,7 @@ function showAuth() {
 function resetSession() {
   state.user = null;
   state.tasks = [];
+  state.vapidPublicKey = "";
 }
 
 async function apiRequest(action, payload = null) {
@@ -433,6 +442,120 @@ function friendlyError(error) {
 
 function priorityLabel(priority) {
   return ({ High: "優先度：高", Medium: "優先度：中", Low: "優先度：低" })[priority] || priority;
+}
+
+async function initializePwa() {
+  if ("serviceWorker" in navigator) {
+    try {
+      state.serviceWorkerRegistration = await navigator.serviceWorker.register("/service-worker.js", { scope: "/" });
+    } catch (error) {
+      console.error("Service worker registration failed", error);
+    }
+  }
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    state.installPrompt = event;
+    el.installButton.hidden = false;
+  });
+  window.addEventListener("appinstalled", () => {
+    state.installPrompt = null;
+    el.installButton.hidden = true;
+    showToast("アプリをインストールしました。");
+  });
+  window.addEventListener("offline", () => showToast("オフラインです。表示済みの画面のみ利用できます。", "error"));
+  window.addEventListener("online", () => showToast("オンラインに戻りました。"));
+}
+
+async function installPwa() {
+  if (!state.installPrompt) return;
+  await state.installPrompt.prompt();
+  await state.installPrompt.userChoice;
+  state.installPrompt = null;
+  el.installButton.hidden = true;
+}
+
+async function refreshNotificationState() {
+  const supported = "Notification" in window && "PushManager" in window && "serviceWorker" in navigator;
+  el.notificationButton.hidden = !supported;
+  if (!supported) return;
+  try {
+    const registration = state.serviceWorkerRegistration || await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    updateNotificationButton(Boolean(subscription));
+    if (state.user && Notification.permission !== "denied") preloadVapidKey().catch(() => {});
+  } catch {
+    updateNotificationButton(false);
+  }
+}
+
+async function preloadVapidKey() {
+  if (state.vapidPublicKey) return state.vapidPublicKey;
+  const response = await fetch("/api/push", { credentials: "same-origin", headers: { Accept: "application/json" } });
+  const result = await readJsonResponse(response);
+  if (!response.ok || !result.ok) throw new Error(result.error || "通知設定を取得できませんでした。");
+  state.vapidPublicKey = result.publicKey;
+  return result.publicKey;
+}
+
+async function togglePushNotifications() {
+  if (state.busy || !state.user) return;
+  setBusy(true, "通知設定を更新しています…", true);
+  try {
+    // Request permission before the first await so browsers retain the click gesture.
+    const permissionRequest = Notification.permission === "default"
+      ? Notification.requestPermission()
+      : Promise.resolve(Notification.permission);
+    const registration = state.serviceWorkerRegistration || await navigator.serviceWorker.ready;
+    const existing = await registration.pushManager.getSubscription();
+    if (existing) {
+      await updatePushServer("unsubscribe", existing.toJSON());
+      await existing.unsubscribe();
+      updateNotificationButton(false);
+      showToast("プッシュ通知を無効にしました。");
+      return;
+    }
+
+    const permission = await permissionRequest;
+    if (permission === "denied") throw new Error("ブラウザーの設定で通知が拒否されています。");
+    if (permission !== "granted") throw new Error("通知が許可されませんでした。");
+    const publicKey = await preloadVapidKey();
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+    await updatePushServer("subscribe", subscription.toJSON());
+    updateNotificationButton(true);
+    showToast("プッシュ通知を有効にしました。");
+  } catch (error) {
+    showToast(friendlyError(error), "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function updatePushServer(action, subscription) {
+  const response = await fetch("/api/push", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ action, subscription }),
+  });
+  const result = await readJsonResponse(response);
+  if (!response.ok || !result.ok) throw new Error(result.error || "通知設定を保存できませんでした。");
+}
+
+function updateNotificationButton(enabled) {
+  el.notificationButton.classList.toggle("is-active", enabled);
+  const label = enabled ? "通知を無効にする" : "通知を有効にする";
+  el.notificationButton.title = label;
+  el.notificationButton.setAttribute("aria-label", label);
+}
+
+function urlBase64ToUint8Array(value) {
+  const padding = "=".repeat((4 - (value.length % 4)) % 4);
+  const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
 }
 
 function toCamel(value) { return value.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()); }

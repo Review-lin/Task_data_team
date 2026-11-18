@@ -6,12 +6,18 @@
     <meta name="referrer" content="no-referrer" />
     <meta name="color-scheme" content="light" />
     <meta name="theme-color" content="#f7f7f2" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="DataTeam" />
     <title>Task Manage DataTeam</title>
     <meta
       name="description"
       content="データチーム専用の安全なタスク管理アプリです。"
     />
     <link rel="stylesheet" href="style.css" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
     <script src="config.js"></script>
     <script src="app.js" defer></script>
   </head>
@@ -57,6 +63,14 @@
             <span>Task Manage DataTeam</span>
           </a>
           <div class="account">
+            <div class="header-actions">
+              <button id="install-button" class="icon-button" type="button" title="アプリをインストール" aria-label="アプリをインストール" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14"/></svg>
+              </button>
+              <button id="notification-button" class="icon-button" type="button" title="通知を有効にする" aria-label="通知を有効にする" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 00-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+              </button>
+            </div>
             <div class="account-copy">
               <strong id="user-name">ログイン中</strong>
               <span>データチーム専用</span>
