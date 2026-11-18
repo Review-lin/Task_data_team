@@ -376,6 +376,11 @@ function updateProgress() {
 }
 
 function openTaskDialog(task = null) {
+  if (!task && state.owners.length === 0) {
+    showToast("先に担当者を追加してください。", "error");
+    openOwnerDialog();
+    return;
+  }
   el.taskForm.reset();
   clearTitleError();
   el.taskId.value = task?.id || "";

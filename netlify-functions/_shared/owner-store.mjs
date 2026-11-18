@@ -5,7 +5,6 @@ import { HttpError } from "./http.mjs";
 const STORE_NAME = "task-manage-datateam-owners";
 const KEY = "owners.json";
 const MAX_OWNERS = 50;
-const DEFAULT_OWNERS = [{ id: "default-owner", name: "自分", createdAt: new Date(0).toISOString() }];
 
 function store() {
   return getStore({ name: STORE_NAME, consistency: "strong" });
@@ -51,7 +50,6 @@ export async function renameOwner(input) {
 export async function deleteOwner(input) {
   const id = String(input?.id || "");
   return mutateOwners((owners) => {
-    if (owners.length <= 1) throw new HttpError(409, "担当者は1名以上必要です。", "LAST_OWNER");
     const index = owners.findIndex((owner) => owner.id === id);
     if (index === -1) throw new HttpError(404, "担当者が見つかりません。", "NOT_FOUND");
     return owners.splice(index, 1)[0];
@@ -71,10 +69,10 @@ async function mutateOwners(mutator) {
 
 async function readSnapshot() {
   const entry = await store().getWithMetadata(KEY, { consistency: "strong", type: "json" });
-  if (!entry) return { owners: DEFAULT_OWNERS.map((owner) => ({ ...owner })), etag: null };
+  if (!entry) return { owners: [], etag: null };
   if (!Array.isArray(entry.data)) throw new Error("Owner data has an invalid format.");
-  const owners = entry.data.map(validateStoredOwner);
-  if (!owners.length || owners.length > MAX_OWNERS) throw new Error("Owner data contains an invalid number of entries.");
+  const owners = entry.data.map(validateStoredOwner).filter((owner) => !(owner.id === "default-owner" && owner.name === "自分"));
+  if (owners.length > MAX_OWNERS) throw new Error("Owner data contains an invalid number of entries.");
   return { owners, etag: entry.etag };
 }
 
