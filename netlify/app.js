@@ -32,7 +32,7 @@ function cacheElements() {
     "add-task-button", "empty-add-button", "status-filter", "priority-filter", "owner-filter", "manage-owners-button",
     "loading-overlay", "loading-text", "toast-region", "task-dialog",
     "task-form", "dialog-title", "task-id", "task-title", "task-description",
-    "task-owner", "task-priority", "title-error", "close-dialog",
+    "task-owner", "task-priority", "task-deadline", "title-error", "close-dialog",
     "cancel-task", "owner-dialog", "owner-form", "owner-name", "save-owner",
     "cancel-owner-edit", "close-owner-dialog", "owner-list", "delete-dialog", "cancel-delete", "confirm-delete",
   ].forEach((id) => { el[toCamel(id)] = document.getElementById(id); });
@@ -57,6 +57,7 @@ function bindEvents() {
   el.closeOwnerDialog.addEventListener("click", closeOwnerDialog);
   el.cancelOwnerEdit.addEventListener("click", resetOwnerEditor);
   el.taskList.addEventListener("click", handleTaskAction);
+  el.taskList.addEventListener("keydown", handleTaskKeydown);
   el.cancelDelete.addEventListener("click", () => el.deleteDialog.close());
   el.confirmDelete.addEventListener("click", confirmDelete);
   el.taskTitle.addEventListener("input", clearTitleError);
@@ -235,6 +236,7 @@ async function saveTask(event) {
     title,
     description: el.taskDescription.value.trim(),
     owner: el.taskOwner.value,
+    dueDate: el.taskDeadline.value,
     priority: el.taskPriority.value,
     status: existing?.status || "Pending",
   };
@@ -255,9 +257,14 @@ async function saveTask(event) {
 
 async function handleTaskAction(event) {
   const button = event.target.closest("button[data-action]");
-  if (!button || state.busy) return;
-  const task = state.tasks.find((item) => item.id === button.dataset.id);
+  const card = event.target.closest(".task-card[data-id]");
+  if (state.busy || (!button && !card)) return;
+  const task = state.tasks.find((item) => item.id === (button?.dataset.id || card?.dataset.id));
   if (!task) return;
+  if (!button) {
+    openTaskDialog(task);
+    return;
+  }
   const action = button.dataset.action;
   if (action === "edit") openTaskDialog(task);
   if (action === "delete") {
@@ -265,6 +272,15 @@ async function handleTaskAction(event) {
     el.deleteDialog.showModal();
   }
   if (action === "toggle") await toggleTask(task);
+}
+
+function handleTaskKeydown(event) {
+  if ((event.key !== "Enter" && event.key !== " ") || event.target.closest("button")) return;
+  const card = event.target.closest(".task-card[data-id]");
+  if (!card || state.busy) return;
+  event.preventDefault();
+  const task = state.tasks.find((item) => item.id === card.dataset.id);
+  if (task) openTaskDialog(task);
 }
 
 async function toggleTask(task) {
@@ -329,9 +345,9 @@ function renderTasks() {
 function createTaskCard(task) {
   const article = document.createElement("article");
   article.className = `task-card priority-${task.priority.toLowerCase()}${task.status === "Completed" ? " is-completed" : ""}`;
-
-  const toggle = iconButton("toggle", task.id, task.status === "Completed" ? "未完了に戻す" : "完了にする", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M5 12l4 4L19 6\"/></svg>");
-  toggle.classList.add("task-check");
+  article.dataset.id = task.id;
+  article.tabIndex = 0;
+  article.setAttribute("aria-label", `${task.title}を編集`);
 
   const main = document.createElement("div");
   main.className = "task-main";
@@ -349,15 +365,26 @@ function createTaskCard(task) {
   meta.className = "task-meta";
   meta.append(makePill(`担当 · ${task.owner || "未設定"}`, "owner"));
   meta.append(makePill(priorityLabel(task.priority), `priority-${task.priority.toLowerCase()}`));
+  if (task.dueDate) {
+    const overdue = task.status !== "Completed" && task.dueDate < localDateKey(new Date());
+    meta.append(makePill(`期限 · ${formatDueDate(task.dueDate)}`, overdue ? "overdue" : ""));
+  }
   main.append(meta);
 
   const actions = document.createElement("div");
   actions.className = "task-actions";
+  const complete = document.createElement("button");
+  complete.type = "button";
+  complete.className = "complete-button";
+  complete.dataset.action = "toggle";
+  complete.dataset.id = task.id;
+  complete.textContent = task.status === "Completed" ? "未完了に戻す" : "完了";
   actions.append(
+    complete,
     iconButton("edit", task.id, "タスクを編集", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 20h9M16.5 3.5a2.1 2.1 0 013 3L8 18l-4 1 1-4z\"/></svg>"),
     iconButton("delete", task.id, "タスクを削除", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 6h18M8 6V4h8v2m-9 0l1 14h8l1-14M10 10v6m4-6v6\"/></svg>", "delete-action"),
   );
-  article.append(toggle, main, actions);
+  article.append(main, actions);
   return article;
 }
 
@@ -386,6 +413,7 @@ function openTaskDialog(task = null) {
   el.taskId.value = task?.id || "";
   el.taskTitle.value = task?.title || "";
   el.taskDescription.value = task?.description || "";
+  el.taskDeadline.value = task?.dueDate || "";
   ensureOwnerOption(task?.owner);
   el.taskOwner.value = task?.owner || state.owners[0]?.name || "";
   el.taskPriority.value = task?.priority || "Medium";
@@ -438,7 +466,24 @@ async function readJsonResponse(response) {
 
 function sortTasks(a, b) {
   if (a.status !== b.status) return a.status === "Pending" ? -1 : 1;
+  if (a.status === "Pending" && a.dueDate !== b.dueDate) {
+    if (!a.dueDate) return 1;
+    if (!b.dueDate) return -1;
+    return a.dueDate.localeCompare(b.dueDate);
+  }
   return (b.createdAt || "").localeCompare(a.createdAt || "");
+}
+
+function localDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatDueDate(value) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat("ja-JP", { month: "short", day: "numeric" }).format(new Date(year, month - 1, day));
 }
 
 function iconButton(action, id, label, svg, extraClass = "") {

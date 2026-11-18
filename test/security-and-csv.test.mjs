@@ -49,6 +49,7 @@ test("CSV round-trips commas, quotes, newlines, and formula-like text", () => {
     title: "=SUM(1,2)",
     description: "First line, with comma\n\"Second line\"",
     owner: "Me",
+    dueDate: "2026-11-30",
     priority: "High",
     status: "Pending",
     createdAt: "2026-11-18T00:00:00.000Z",
@@ -58,8 +59,14 @@ test("CSV round-trips commas, quotes, newlines, and formula-like text", () => {
   assert.deepEqual(parseTasks(csv), [task]);
 });
 
+test("legacy CSV files load with an empty deadline", () => {
+  const csv = '"ID","Title","Description","Owner","Priority","Status","CreatedAt"\r\n"task-1","Task","","Me","Medium","Pending","2026-11-18T00:00:00.000Z"\r\n';
+  assert.equal(parseTasks(csv)[0].dueDate, "");
+});
+
 test("task validation enforces required fields and enums", () => {
   assert.equal(validateTask({ title: "Task", owner: "Me", priority: "Low", status: "Pending" }, false).title, "Task");
   assert.throws(() => validateTask({ title: "Task", owner: "Me", priority: "Urgent" }, false), HttpError);
   assert.throws(() => validateTask({ owner: "Me" }, false), HttpError);
+  assert.throws(() => validateTask({ title: "Task", owner: "Me", dueDate: "2026-02-30" }, false), HttpError);
 });

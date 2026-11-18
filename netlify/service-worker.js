@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "task-manage-datateam-v2";
+const CACHE_NAME = "task-manage-datateam-v3";
 const APP_SHELL = [
   "/",
   "/index.html",

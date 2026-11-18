@@ -1,6 +1,7 @@
 import { HttpError } from "./http.mjs";
 
-const HEADERS = ["ID", "Title", "Description", "Owner", "Priority", "Status", "CreatedAt"];
+const HEADERS = ["ID", "Title", "Description", "Owner", "DueDate", "Priority", "Status", "CreatedAt"];
+const LEGACY_HEADERS = ["ID", "Title", "Description", "Owner", "Priority", "Status", "CreatedAt"];
 const VALID_PRIORITIES = new Set(["Low", "Medium", "High"]);
 const VALID_STATUSES = new Set(["Pending", "Completed"]);
 export const MAX_TASKS = 5000;
@@ -15,6 +16,7 @@ export function validateTask(input, requireId) {
     title: clean(input.title, 150),
     description: clean(input.description, 2000),
     owner: clean(input.owner, 100),
+    dueDate: clean(input.dueDate, 10),
     priority: clean(input.priority, 20) || "Medium",
     status: clean(input.status, 20) || "Pending",
     createdAt: "",
@@ -22,6 +24,7 @@ export function validateTask(input, requireId) {
   if (requireId && !task.id) throw new HttpError(400, "タスクIDが必要です。", "VALIDATION_ERROR");
   if (!task.title) throw new HttpError(400, "タスクのタイトルが必要です。", "VALIDATION_ERROR");
   if (!task.owner) throw new HttpError(400, "担当者を選択してください。", "VALIDATION_ERROR");
+  if (task.dueDate && !isValidDate(task.dueDate)) throw new HttpError(400, "期限の日付が正しくありません。", "VALIDATION_ERROR");
   if (!VALID_PRIORITIES.has(task.priority)) throw new HttpError(400, "優先度の値が正しくありません。", "VALIDATION_ERROR");
   if (!VALID_STATUSES.has(task.status)) throw new HttpError(400, "タスク状態の値が正しくありません。", "VALIDATION_ERROR");
   return task;
@@ -30,20 +33,23 @@ export function validateTask(input, requireId) {
 export function parseTasks(csv) {
   const rows = parseCsv(String(csv || "").replace(/^\uFEFF/, ""));
   if (!rows.length) return [];
-  if (rows[0].length !== HEADERS.length || !HEADERS.every((header, index) => rows[0][index] === header)) {
+  const currentFormat = rows[0].length === HEADERS.length && HEADERS.every((header, index) => rows[0][index] === header);
+  const legacyFormat = rows[0].length === LEGACY_HEADERS.length && LEGACY_HEADERS.every((header, index) => rows[0][index] === header);
+  if (!currentFormat && !legacyFormat) {
     throw new Error("The stored CSV has invalid headers.");
   }
   if (rows.length - 1 > MAX_TASKS) throw new Error("The stored CSV has too many rows.");
   return rows.slice(1).filter((row) => row.some((cell) => cell !== "")).map((row, index) => {
-    if (row.length !== HEADERS.length) throw new Error(`Malformed CSV row ${index + 2}.`);
+    if (row.length !== rows[0].length) throw new Error(`Malformed CSV row ${index + 2}.`);
     return {
       id: row[0],
       title: restoreCsvText(row[1]),
       description: restoreCsvText(row[2]),
       owner: restoreCsvText(row[3]),
-      priority: row[4] || "Medium",
-      status: row[5] || "Pending",
-      createdAt: row[6] || "",
+      dueDate: currentFormat ? row[4] : "",
+      priority: row[currentFormat ? 5 : 4] || "Medium",
+      status: row[currentFormat ? 6 : 5] || "Pending",
+      createdAt: row[currentFormat ? 7 : 6] || "",
     };
   });
 }
@@ -54,6 +60,7 @@ export function serializeCsv(tasks) {
     safeCsvText(task.title),
     safeCsvText(task.description),
     safeCsvText(task.owner),
+    task.dueDate || "",
     task.priority,
     task.status,
     task.createdAt,
@@ -101,4 +108,10 @@ function restoreCsvText(value) {
 
 export function clean(value, maxLength) {
   return String(value == null ? "" : value).trim().slice(0, maxLength);
+}
+
+function isValidDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
