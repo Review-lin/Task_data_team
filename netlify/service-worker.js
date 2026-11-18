@@ -1,15 +1,16 @@
 "use strict";
 
-const CACHE_NAME = "task-manage-datateam-v4";
+const ASSET_VERSION = "20261118-1";
+const CACHE_NAME = `task-manage-datateam-${ASSET_VERSION}`;
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/style.css",
-  "/app.js",
-  "/manifest.webmanifest",
-  "/icons/icon.svg",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
+  `/style.css?v=${ASSET_VERSION}`,
+  `/app.js?v=${ASSET_VERSION}`,
+  `/manifest.webmanifest?v=${ASSET_VERSION}`,
+  `/icons/icon.svg?v=${ASSET_VERSION}`,
+  `/icons/icon-192.png?v=${ASSET_VERSION}`,
+  `/icons/icon-512.png?v=${ASSET_VERSION}`,
 ];
 
 self.addEventListener("install", (event) => {
@@ -52,8 +53,8 @@ self.addEventListener("push", (event) => {
 
   event.waitUntil(self.registration.showNotification(payload.title, {
     body: payload.body,
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
+    icon: `/icons/icon-192.png?v=${ASSET_VERSION}`,
+    badge: `/icons/icon-192.png?v=${ASSET_VERSION}`,
     tag: payload.tag || "task-update",
     renotify: true,
     data: { url: payload.url || "/" },

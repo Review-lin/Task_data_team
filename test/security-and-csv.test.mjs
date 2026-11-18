@@ -28,6 +28,7 @@ test("session cookie is HttpOnly and signed tokens reject tampering", () => {
   const cookie = sessionCookie(token, request);
   assert.match(cookie, /HttpOnly/);
   assert.match(cookie, /SameSite=Strict/);
+  assert.match(cookie, /Priority=High/);
   assert.match(cookie, /; Secure/);
   const authenticated = new Request(request.url, { headers: { Cookie: cookie.split(";")[0] } });
   assert.equal(requireSession(authenticated).username, "owner");

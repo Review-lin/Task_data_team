@@ -12,13 +12,18 @@ const state = {
   vapidPublicKey: "",
 };
 
+const ASSET_VERSION = "20261118-1";
+const COOKIE_NOTICE_NAME = "task_manage_cookie_notice";
+
 const el = {};
 
 document.addEventListener("DOMContentLoaded", () => {
   cacheElements();
   bindEvents();
   setDateGreeting();
+  initializeAnalyticsRange();
   initializePwa();
+  initializeCookieNotice();
   checkSession();
 });
 
@@ -36,8 +41,10 @@ function cacheElements() {
     "task-owner", "task-priority", "task-start-date", "task-deadline", "title-error", "close-dialog",
     "cancel-task", "owner-dialog", "owner-form", "owner-name", "save-owner",
     "cancel-owner-edit", "close-owner-dialog", "owner-list", "delete-dialog", "cancel-delete", "confirm-delete",
-    "analytics-weeks", "analytics-total", "analytics-completed", "analytics-rate", "analytics-overdue",
+    "analytics-weeks", "analytics-start-date", "analytics-end-date",
+    "analytics-total", "analytics-completed", "analytics-rate", "analytics-overdue",
     "weekly-chart", "weekly-chart-total", "owner-performance",
+    "cookie-notice", "cookie-notice-button",
   ].forEach((id) => { el[toCamel(id)] = document.getElementById(id); });
 }
 
@@ -46,10 +53,13 @@ function bindEvents() {
   el.signoutButton.addEventListener("click", signOut);
   el.installButton.addEventListener("click", installPwa);
   el.notificationButton.addEventListener("click", togglePushNotifications);
+  el.cookieNoticeButton.addEventListener("click", acceptCookieNotice);
   el.brandHome.addEventListener("click", (event) => { event.preventDefault(); showPage("tasks"); });
   el.tasksNavButton.addEventListener("click", () => showPage("tasks"));
   el.analyticsNavButton.addEventListener("click", () => showPage("analytics"));
-  el.analyticsWeeks.addEventListener("change", renderAnalytics);
+  el.analyticsWeeks.addEventListener("change", applyAnalyticsPreset);
+  el.analyticsStartDate.addEventListener("change", handleAnalyticsDateChange);
+  el.analyticsEndDate.addEventListener("change", handleAnalyticsDateChange);
   el.addTaskButton.addEventListener("click", () => openTaskDialog());
   el.emptyAddButton.addEventListener("click", () => openTaskDialog());
   el.closeDialog.addEventListener("click", closeTaskDialog);
@@ -425,18 +435,58 @@ function renderOwnerPerformance() {
   }));
 }
 
+function initializeAnalyticsRange() {
+  applyAnalyticsPreset();
+}
+
+function applyAnalyticsPreset() {
+  if (el.analyticsWeeks.value === "custom") {
+    handleAnalyticsDateChange();
+    return;
+  }
+  const weeks = Math.max(1, Math.min(12, Number.parseInt(el.analyticsWeeks.value, 10) || 4));
+  const start = startOfWeek(new Date());
+  start.setDate(start.getDate() - ((weeks - 1) * 7));
+  const end = startOfWeek(new Date());
+  end.setDate(end.getDate() + 6);
+  el.analyticsStartDate.value = localDateKey(start);
+  el.analyticsEndDate.value = localDateKey(end);
+  renderAnalytics();
+}
+
+function handleAnalyticsDateChange() {
+  const start = parseLocalDate(el.analyticsStartDate.value);
+  const end = parseLocalDate(el.analyticsEndDate.value);
+  if (!start || !end) return;
+  const span = dayDifference(start, end);
+  if (span < 6) {
+    const correctedEnd = new Date(start);
+    correctedEnd.setDate(correctedEnd.getDate() + 6);
+    el.analyticsEndDate.value = localDateKey(correctedEnd);
+    showToast("分析期間は最低1週間に設定してください。", "error");
+  } else if (span > 363) {
+    const correctedEnd = new Date(start);
+    correctedEnd.setDate(correctedEnd.getDate() + 363);
+    el.analyticsEndDate.value = localDateKey(correctedEnd);
+    showToast("分析期間は最大52週間です。", "error");
+  }
+  el.analyticsWeeks.value = "custom";
+  renderAnalytics();
+}
+
 function renderWeeklyChart() {
-  const weeks = Math.max(1, Math.min(12, Number.parseInt(el.analyticsWeeks.value, 10) || 1));
-  const currentWeek = startOfWeek(new Date());
-  const firstWeek = new Date(currentWeek);
-  firstWeek.setDate(firstWeek.getDate() - ((weeks - 1) * 7));
-  const buckets = Array.from({ length: weeks }, (_, index) => {
-    const start = new Date(firstWeek);
-    start.setDate(firstWeek.getDate() + (index * 7));
-    const end = new Date(start);
-    end.setDate(start.getDate() + 7);
-    return { start, end, count: 0 };
-  });
+  const rangeStart = parseLocalDate(el.analyticsStartDate.value) || startOfWeek(new Date());
+  const rangeEnd = parseLocalDate(el.analyticsEndDate.value) || new Date(rangeStart);
+  const rangeEndExclusive = new Date(rangeEnd);
+  rangeEndExclusive.setDate(rangeEndExclusive.getDate() + 1);
+  const buckets = [];
+  for (let cursor = new Date(rangeStart); cursor < rangeEndExclusive && buckets.length < 52; cursor.setDate(cursor.getDate() + 7)) {
+    const start = new Date(cursor);
+    const end = new Date(cursor);
+    end.setDate(end.getDate() + 7);
+    if (end > rangeEndExclusive) end.setTime(rangeEndExclusive.getTime());
+    buckets.push({ start, end, count: 0 });
+  }
 
   for (const task of state.tasks) {
     if (task.status !== "Completed" || !task.completedAt) continue;
@@ -449,8 +499,8 @@ function renderWeeklyChart() {
   const maximum = Math.max(1, ...buckets.map((bucket) => bucket.count));
   const periodTotal = buckets.reduce((sum, bucket) => sum + bucket.count, 0);
   el.weeklyChartTotal.textContent = `期間内 ${periodTotal}件`;
-  el.weeklyChart.setAttribute("aria-label", `${weeks}週間の完了タスクは${periodTotal}件です。`);
-  el.weeklyChart.style.setProperty("--chart-columns", String(weeks));
+  el.weeklyChart.setAttribute("aria-label", `${el.analyticsStartDate.value}から${el.analyticsEndDate.value}までの完了タスクは${periodTotal}件です。`);
+  el.weeklyChart.style.setProperty("--chart-columns", String(buckets.length));
   el.weeklyChart.replaceChildren(...buckets.map((bucket) => {
     const column = document.createElement("div");
     column.className = "weekly-column";
@@ -475,6 +525,19 @@ function startOfWeek(date) {
   const daysFromMonday = (result.getDay() + 6) % 7;
   result.setDate(result.getDate() - daysFromMonday);
   return result;
+}
+
+function parseLocalDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return localDateKey(date) === value ? date : null;
+}
+
+function dayDifference(start, end) {
+  const startUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+  const endUtc = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+  return Math.round((endUtc - startUtc) / 86_400_000);
 }
 
 function createTaskCard(task) {
@@ -773,7 +836,7 @@ function priorityLabel(priority) {
 async function initializePwa() {
   if ("serviceWorker" in navigator) {
     try {
-      state.serviceWorkerRegistration = await navigator.serviceWorker.register("/service-worker.js", { scope: "/" });
+      state.serviceWorkerRegistration = await navigator.serviceWorker.register(`/service-worker.js?v=${ASSET_VERSION}`, { scope: "/" });
     } catch (error) {
       console.error("Service worker registration failed", error);
     }
@@ -791,6 +854,17 @@ async function initializePwa() {
   });
   window.addEventListener("offline", () => showToast("オフラインです。表示済みの画面のみ利用できます。", "error"));
   window.addEventListener("online", () => showToast("オンラインに戻りました。"));
+}
+
+function initializeCookieNotice() {
+  const accepted = document.cookie.split(";").some((part) => part.trim() === `${COOKIE_NOTICE_NAME}=accepted`);
+  el.cookieNotice.hidden = accepted;
+}
+
+function acceptCookieNotice() {
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${COOKIE_NOTICE_NAME}=accepted; Path=/; Max-Age=31536000; SameSite=Strict${secure}`;
+  el.cookieNotice.hidden = true;
 }
 
 async function installPwa() {

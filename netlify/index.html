@@ -14,11 +14,11 @@
       name="description"
       content="データチーム専用の安全なタスク管理アプリです。"
     />
-    <link rel="stylesheet" href="style.css" />
-    <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="icons/icon-192.png" />
-    <script src="app.js" defer></script>
+    <link rel="stylesheet" href="style.css?v=20261118-1" />
+    <link rel="manifest" href="manifest.webmanifest?v=20261118-1" />
+    <link rel="icon" href="icons/icon.svg?v=20261118-1" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png?v=20261118-1" />
+    <script src="app.js?v=20261118-1" defer></script>
   </head>
   <body>
     <div class="ambient ambient-one" aria-hidden="true"></div>
@@ -160,14 +160,25 @@
               <h1 id="analytics-heading">タスク分析</h1>
               <p class="subheading">担当者ごとの進捗と週ごとの完了数を確認できます。</p>
             </div>
-            <label class="analytics-range-field">
-              <span>表示期間</span>
-              <select id="analytics-weeks">
-                <option value="1">1週間</option>
-                <option value="4" selected>4週間</option>
-                <option value="12">12週間</option>
-              </select>
-            </label>
+            <div class="analytics-range-controls" aria-label="分析期間">
+              <label class="analytics-range-field">
+                <span>クイック選択</span>
+                <select id="analytics-weeks">
+                  <option value="1">1週間</option>
+                  <option value="4" selected>4週間</option>
+                  <option value="12">12週間</option>
+                  <option value="custom">指定期間</option>
+                </select>
+              </label>
+              <label class="analytics-range-field">
+                <span>開始日</span>
+                <input id="analytics-start-date" type="date" />
+              </label>
+              <label class="analytics-range-field">
+                <span>終了日</span>
+                <input id="analytics-end-date" type="date" />
+              </label>
+            </div>
           </div>
 
           <div class="analytics-summary" aria-label="全体集計">
@@ -198,6 +209,14 @@
         </section>
       </section>
     </main>
+
+    <aside id="cookie-notice" class="cookie-notice" aria-label="Cookieのご案内" hidden>
+      <div>
+        <strong>Cookieのご案内</strong>
+        <p>安全なログイン状態を維持するため、必要不可欠なCookieのみを使用します。広告・追跡用Cookieは使用しません。</p>
+      </div>
+      <button id="cookie-notice-button" class="primary-button" type="button">確認しました</button>
+    </aside>
 
     <div id="loading-overlay" class="loading-overlay" hidden aria-live="polite" aria-label="読み込み中">
       <div class="spinner"></div>

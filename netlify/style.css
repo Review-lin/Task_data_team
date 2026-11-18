@@ -170,6 +170,11 @@ select { padding: 8px 32px 8px 10px; border: 1px solid var(--line); border-radiu
 .toast.error { color: #8e342d; border-color: #e9bdb8; background: #fff8f7; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 
+.cookie-notice { position: fixed; z-index: 105; right: 18px; bottom: 18px; left: 18px; width: min(720px, calc(100% - 36px)); display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-left: auto; padding: 15px 16px 15px 18px; border: 1px solid rgba(47, 105, 79, .2); border-radius: 13px; background: rgba(255, 254, 250, .97); box-shadow: 0 18px 45px rgba(30, 45, 37, .18); backdrop-filter: blur(12px); }
+.cookie-notice strong { display: block; margin-bottom: 3px; font-size: .82rem; }
+.cookie-notice p { margin: 0; color: var(--muted); font-size: .73rem; line-height: 1.5; }
+.cookie-notice .primary-button { flex: 0 0 auto; min-height: 38px; padding: 0 14px; font-size: .75rem; }
+
 dialog { color: var(--ink); }
 dialog::backdrop { background: rgba(19, 31, 25, .44); backdrop-filter: blur(3px); }
 .task-dialog, .owner-dialog, .confirm-dialog { width: min(calc(100% - 32px), 590px); padding: 0; border: 1px solid var(--line); border-radius: 20px; background: var(--card); box-shadow: var(--shadow); }
@@ -206,7 +211,9 @@ dialog::backdrop { background: rgba(19, 31, 25, .44); backdrop-filter: blur(3px)
 .analytics-page { padding-bottom: 64px; }
 .analytics-heading-row { align-items: center; }
 .analytics-heading-row h1 { margin-bottom: 5px; }
+.analytics-range-controls { display: flex; align-items: end; gap: 8px; }
 .analytics-range-field { display: grid; gap: 6px; color: var(--muted); font-size: .72rem; font-weight: 600; }
+.analytics-range-field input { min-height: 38px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--card); }
 .analytics-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 22px 0 12px; }
 .summary-card { position: relative; min-height: 108px; padding: 16px 18px; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 254, 250, .84); }
 .summary-card::after { position: absolute; right: -18px; bottom: -30px; width: 78px; height: 78px; border-radius: 50%; background: var(--green-soft); content: ""; opacity: .7; }
@@ -266,11 +273,15 @@ dialog::backdrop { background: rgba(19, 31, 25, .44); backdrop-filter: blur(3px)
   .field-grid { grid-template-columns: 1fr; }
   .analytics-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .analytics-heading-row { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .analytics-range-controls { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+  .analytics-range-controls .analytics-range-field:first-child { grid-column: 1 / -1; }
   .analytics-range-field { width: 100%; }
-  .analytics-range-field select { width: 100%; }
+  .analytics-range-field select, .analytics-range-field input { width: 100%; }
   .analytics-panel { padding: 14px 11px; }
   .owner-table-head, .owner-performance-row { grid-template-columns: minmax(70px, 1fr) 38px 38px minmax(82px, 1fr); gap: 5px; }
   .owner-progress { grid-template-columns: 28px minmax(48px, 1fr); gap: 4px; }
+  .cookie-notice { align-items: stretch; flex-direction: column; gap: 10px; }
+  .cookie-notice .primary-button { width: 100%; }
   .task-dialog form { padding: 24px 20px; }
   .owner-create-row { grid-template-columns: minmax(0, 1fr) auto; }
   .owner-create-row .field { grid-column: 1 / -1; }

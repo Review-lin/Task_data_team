@@ -67,11 +67,11 @@ export function requireSession(request) {
 }
 
 export function sessionCookie(token, request) {
-  return `${COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_SECONDS}${secureSuffix(request)}`;
+  return `${COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Strict; Priority=High; Max-Age=${SESSION_SECONDS}${secureSuffix(request)}`;
 }
 
 export function clearSessionCookie(request) {
-  return `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${secureSuffix(request)}`;
+  return `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Strict; Priority=High; Max-Age=0${secureSuffix(request)}`;
 }
 
 function secureSuffix(request) {
