@@ -18,7 +18,6 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="icons/icon-192.png" />
-    <script src="config.js"></script>
     <script src="app.js" defer></script>
   </head>
   <body>
@@ -133,6 +132,7 @@
                     <option value="All">すべての担当者</option>
                   </select>
                 </label>
+                <button id="manage-owners-button" class="owner-manage-button" type="button">担当者管理</button>
               </div>
             </div>
 
@@ -198,6 +198,30 @@
           <button id="cancel-task" class="secondary-button" type="button">キャンセル</button>
           <button class="primary-button" type="submit">保存</button>
         </div>
+      </form>
+    </dialog>
+
+    <dialog id="owner-dialog" class="owner-dialog">
+      <form id="owner-form" novalidate>
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">チーム設定</p>
+            <h2>担当者管理</h2>
+          </div>
+          <button id="close-owner-dialog" class="icon-button" type="button" aria-label="閉じる">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="owner-create-row">
+          <label class="field">
+            <span>担当者名</span>
+            <input id="owner-name" type="text" maxlength="50" required placeholder="例：田中" autocomplete="off" />
+          </label>
+          <button id="save-owner" class="primary-button" type="submit">追加</button>
+          <button id="cancel-owner-edit" class="secondary-button" type="button" hidden>取消</button>
+        </div>
+        <p id="owner-help" class="owner-help">担当者名を変更すると、割り当て済みのタスクにも反映されます。</p>
+        <div id="owner-list" class="owner-list" aria-live="polite"></div>
       </form>
     </dialog>
 

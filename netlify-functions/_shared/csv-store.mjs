@@ -46,6 +46,24 @@ export async function deleteTask(input) {
   });
 }
 
+export async function countTasksForOwner(ownerName) {
+  const tasks = await listTasks();
+  return tasks.filter((task) => task.owner === ownerName).length;
+}
+
+export async function renameTasksOwner(previousName, nextName) {
+  return mutateTasks((tasks) => {
+    let updated = 0;
+    for (const task of tasks) {
+      if (task.owner === previousName) {
+        task.owner = nextName;
+        updated += 1;
+      }
+    }
+    return updated;
+  });
+}
+
 async function mutateTasks(mutator) {
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const snapshot = await readSnapshot();

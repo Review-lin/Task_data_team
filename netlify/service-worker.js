@@ -1,12 +1,11 @@
 "use strict";
 
-const CACHE_NAME = "task-manage-datateam-v1";
+const CACHE_NAME = "task-manage-datateam-v2";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/style.css",
   "/app.js",
-  "/config.js",
   "/manifest.webmanifest",
   "/icons/icon.svg",
   "/icons/icon-192.png",

@@ -1,9 +1,10 @@
 "use strict";
 
-const config = window.APP_CONFIG || {};
 const state = {
   user: null,
   tasks: [],
+  owners: [],
+  editingOwnerId: "",
   deleteId: "",
   busy: false,
   serviceWorkerRegistration: null,
@@ -28,11 +29,12 @@ function cacheElements() {
     "notification-button", "today-label", "day-period",
     "progress-copy", "progress-percent", "progress-count", "progress-bar",
     "task-total", "task-list", "empty-state", "empty-title", "empty-copy",
-    "add-task-button", "empty-add-button", "status-filter", "priority-filter", "owner-filter",
+    "add-task-button", "empty-add-button", "status-filter", "priority-filter", "owner-filter", "manage-owners-button",
     "loading-overlay", "loading-text", "toast-region", "task-dialog",
     "task-form", "dialog-title", "task-id", "task-title", "task-description",
     "task-owner", "task-priority", "title-error", "close-dialog",
-    "cancel-task", "delete-dialog", "cancel-delete", "confirm-delete",
+    "cancel-task", "owner-dialog", "owner-form", "owner-name", "save-owner",
+    "cancel-owner-edit", "close-owner-dialog", "owner-list", "delete-dialog", "cancel-delete", "confirm-delete",
   ].forEach((id) => { el[toCamel(id)] = document.getElementById(id); });
 }
 
@@ -49,26 +51,28 @@ function bindEvents() {
   el.statusFilter.addEventListener("change", renderTasks);
   el.priorityFilter.addEventListener("change", renderTasks);
   el.ownerFilter.addEventListener("change", renderTasks);
+  el.manageOwnersButton.addEventListener("click", openOwnerDialog);
+  el.ownerForm.addEventListener("submit", saveOwner);
+  el.ownerList.addEventListener("click", handleOwnerAction);
+  el.closeOwnerDialog.addEventListener("click", closeOwnerDialog);
+  el.cancelOwnerEdit.addEventListener("click", resetOwnerEditor);
   el.taskList.addEventListener("click", handleTaskAction);
   el.cancelDelete.addEventListener("click", () => el.deleteDialog.close());
   el.confirmDelete.addEventListener("click", confirmDelete);
   el.taskTitle.addEventListener("input", clearTitleError);
   el.taskDialog.addEventListener("click", closeOnBackdrop);
+  el.ownerDialog.addEventListener("click", closeOnBackdrop);
   el.deleteDialog.addEventListener("click", closeOnBackdrop);
-  populateOwnerOptions();
 }
 
 async function checkSession() {
-  if (!isConfigured()) {
-    el.authMessage.textContent = "config.js に担当者を1名以上設定してください。";
-    return;
-  }
   setBusy(true, "ログイン状態を確認しています…", true);
   try {
     const response = await fetch("/api/session", { credentials: "same-origin", headers: { Accept: "application/json" } });
     if (!response.ok) return showAuth();
     const result = await response.json();
     state.user = result.user;
+    await loadOwners(false);
     await loadTasks(false);
     showApp();
   } catch {
@@ -102,6 +106,7 @@ async function login(event) {
     if (!response.ok || !result.ok) throw new Error(result.error || "ログインに失敗しました。");
     state.user = result.user;
     el.loginPassword.value = "";
+    await loadOwners(false);
     await loadTasks(false);
     showApp();
   } catch (error) {
@@ -144,6 +149,8 @@ function showAuth() {
 function resetSession() {
   state.user = null;
   state.tasks = [];
+  state.owners = [];
+  state.editingOwnerId = "";
   state.vapidPublicKey = "";
 }
 
@@ -173,6 +180,38 @@ async function loadTasks(showFullLoader = false) {
     const result = await apiRequest("list");
     state.tasks = Array.isArray(result.tasks) ? result.tasks : [];
     renderTasks();
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function ownerApi(action = "list", payload = null) {
+  assertActiveSession();
+  const response = await fetch("/api/owners", action === "list" ? {
+    method: "GET",
+    credentials: "same-origin",
+    headers: { Accept: "application/json" },
+  } : {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ action, data: payload }),
+  });
+  const result = await readJsonResponse(response);
+  if (!response.ok || !result.ok) {
+    if (response.status === 401) showAuth();
+    throw new Error(result.error || `リクエストに失敗しました（${response.status}）。`);
+  }
+  return result;
+}
+
+async function loadOwners(showFullLoader = false) {
+  setBusy(true, "担当者を読み込んでいます…", showFullLoader);
+  try {
+    const result = await ownerApi();
+    state.owners = Array.isArray(result.owners) ? result.owners : [];
+    renderOwnerOptions();
+    renderOwnerList();
   } finally {
     setBusy(false);
   }
@@ -343,7 +382,7 @@ function openTaskDialog(task = null) {
   el.taskTitle.value = task?.title || "";
   el.taskDescription.value = task?.description || "";
   ensureOwnerOption(task?.owner);
-  el.taskOwner.value = task?.owner || config.TASK_OWNERS[0] || "";
+  el.taskOwner.value = task?.owner || state.owners[0]?.name || "";
   el.taskPriority.value = task?.priority || "Medium";
   el.dialogTitle.textContent = task ? "タスクを編集" : "タスクを追加";
   el.taskDialog.showModal();
@@ -416,12 +455,17 @@ function makePill(text, className = "") {
   return pill;
 }
 
-function populateOwnerOptions() {
-  const owners = Array.isArray(config.TASK_OWNERS)
-    ? [...new Set(config.TASK_OWNERS.map((owner) => String(owner).trim()).filter(Boolean))]
-    : [];
-  el.taskOwner.replaceChildren(...owners.map((owner) => new Option(owner, owner)));
-  el.ownerFilter.replaceChildren(new Option("すべての担当者", "All"), ...owners.map((owner) => new Option(owner, owner)));
+function renderOwnerOptions() {
+  const selectedTaskOwner = el.taskOwner.value;
+  const selectedFilter = el.ownerFilter.value;
+  const options = state.owners.map((owner) => new Option(owner.name, owner.name));
+  el.taskOwner.replaceChildren(...options);
+  el.ownerFilter.replaceChildren(
+    new Option("すべての担当者", "All"),
+    ...state.owners.map((owner) => new Option(owner.name, owner.name)),
+  );
+  if (state.owners.some((owner) => owner.name === selectedTaskOwner)) el.taskOwner.value = selectedTaskOwner;
+  if (state.owners.some((owner) => owner.name === selectedFilter)) el.ownerFilter.value = selectedFilter;
 }
 
 function ensureOwnerOption(owner) {
@@ -429,8 +473,103 @@ function ensureOwnerOption(owner) {
   if (![...el.taskOwner.options].some((option) => option.value === owner)) el.taskOwner.add(new Option(owner, owner));
 }
 
-function isConfigured() {
-  return Array.isArray(config.TASK_OWNERS) && config.TASK_OWNERS.length > 0;
+function openOwnerDialog() {
+  resetOwnerEditor();
+  renderOwnerList();
+  el.ownerDialog.showModal();
+  window.setTimeout(() => el.ownerName.focus(), 50);
+}
+
+function closeOwnerDialog() {
+  resetOwnerEditor();
+  if (el.ownerDialog.open) el.ownerDialog.close();
+}
+
+function resetOwnerEditor() {
+  state.editingOwnerId = "";
+  el.ownerName.value = "";
+  el.saveOwner.textContent = "追加";
+  el.cancelOwnerEdit.hidden = true;
+}
+
+function renderOwnerList() {
+  if (!el.ownerList) return;
+  el.ownerList.replaceChildren(...state.owners.map((owner) => {
+    const row = document.createElement("div");
+    row.className = "owner-row";
+    const name = document.createElement("span");
+    name.textContent = owner.name;
+    const actions = document.createElement("div");
+    actions.className = "owner-row-actions";
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "text-button";
+    edit.dataset.ownerAction = "edit";
+    edit.dataset.id = owner.id;
+    edit.textContent = "変更";
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "text-button owner-delete-button";
+    remove.dataset.ownerAction = "delete";
+    remove.dataset.id = owner.id;
+    remove.textContent = "削除";
+    actions.append(edit, remove);
+    row.append(name, actions);
+    return row;
+  }));
+}
+
+async function saveOwner(event) {
+  event.preventDefault();
+  if (state.busy) return;
+  const name = el.ownerName.value.trim();
+  if (!name) {
+    showToast("担当者名を入力してください。", "error");
+    el.ownerName.focus();
+    return;
+  }
+  const action = state.editingOwnerId ? "rename" : "create";
+  setBusy(true, action === "rename" ? "担当者名を変更しています…" : "担当者を追加しています…", true);
+  try {
+    await ownerApi(action, { id: state.editingOwnerId, name });
+    resetOwnerEditor();
+    await loadOwners(false);
+    if (action === "rename") await loadTasks(false);
+    showToast(action === "rename" ? "担当者名を変更しました。" : "担当者を追加しました。");
+  } catch (error) {
+    showToast(friendlyError(error), "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function handleOwnerAction(event) {
+  const button = event.target.closest("button[data-owner-action]");
+  if (!button || state.busy) return;
+  const owner = state.owners.find((item) => item.id === button.dataset.id);
+  if (!owner) return;
+  if (button.dataset.ownerAction === "edit") {
+    state.editingOwnerId = owner.id;
+    el.ownerName.value = owner.name;
+    el.saveOwner.textContent = "更新";
+    el.cancelOwnerEdit.hidden = false;
+    el.ownerName.focus();
+    el.ownerName.select();
+    return;
+  }
+  if (!window.confirm(`「${owner.name}」を削除しますか？`)) return;
+  setBusy(true, "担当者を削除しています…", true);
+  try {
+    await ownerApi("delete", { id: owner.id });
+    resetOwnerEditor();
+    await loadOwners(false);
+    renderTasks();
+    showToast("担当者を削除しました。");
+  } catch (error) {
+    showToast(friendlyError(error), "error");
+  } finally {
+    setBusy(false);
+  }
 }
 
 function friendlyError(error) {

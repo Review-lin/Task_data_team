@@ -7,22 +7,11 @@ Netlifyで動作する、データチーム専用の1ユーザー向けタスク
 - `netlify/`：公開されるHTML、CSS、JavaScript
 - `netlify-functions/`：ログイン、セッション、タスク操作を行うサーバー処理
 - Netlify環境変数：ログイン情報、セッション署名、プッシュ通知用VAPID鍵
-- Netlify Blobs：`task-manage-datateam-data` 内の非公開 `tasks.csv`
-- `netlify/config.js`：公開してよい担当者名だけを管理
+- Netlify Blobs：非公開の `tasks.csv`、担当者一覧、通知登録
 
 公開対象は `netlify` フォルダーだけです。Functionsのソース、テスト、説明書はWebサイトから直接参照できません。
 
-## 1. 担当者を設定する
-
-`netlify/config.js` の一覧だけを変更します。
-
-```js
-TASK_OWNERS: Object.freeze(["自分", "田中", "佐藤"]),
-```
-
-担当者はタスク上の表示名です。ログインアカウントが増えるわけではありません。
-
-## 2. パスワードを決める
+## 1. パスワードを決める
 
 12文字以上の強いパスワードを用意してください。パスワードはNetlifyのFunctions用環境変数だけに保存します。プロジェクトファイル、GitHub、画面側のコードには絶対に書かないでください。
 
@@ -34,7 +23,7 @@ openssl rand -base64 48
 
 この値はパスワードとは別にしてください。チャットやGitHubへ貼り付けないでください。
 
-## 3. Netlifyを設定する
+## 2. Netlifyを設定する
 
 1. GitHubリポジトリをNetlifyへ取り込みます。
 2. `netlify.toml` が自動で読み込まれるため、ビルドコマンドは不要です。
@@ -59,11 +48,13 @@ npm install
 npx web-push generate-vapid-keys --json
 ```
 
-`VAPID_SUBJECT` には `mailto:` から始まる実在の管理者メールアドレスを設定します。環境変数の実際の値を `config.js`、`netlify.toml`、GitHub、説明書へ書かないでください。公開鍵だけは、ログイン後にFunctionsからブラウザーへ安全に渡されます。
+`VAPID_SUBJECT` には `mailto:` から始まる実在の管理者メールアドレスを設定します。環境変数の実際の値を `netlify.toml`、GitHub、説明書へ書かないでください。公開鍵だけは、ログイン後にFunctionsからブラウザーへ安全に渡されます。
 
-## 4. ログインしてCSVを作成する
+## 3. ログインして担当者とタスクを作成する
 
-デプロイ先を開き、Netlifyに設定したユーザー名とパスワードでログインします。最初のタスクを追加すると、非公開の `tasks.csv` が自動作成されます。
+デプロイ先を開き、Netlifyに設定したユーザー名とパスワードでログインします。初期担当者は「自分」です。タスク一覧の「担当者管理」から担当者を追加、名前変更、削除できます。名前変更は割り当て済みタスクにも反映されます。タスクが残っている担当者は削除できないため、先にタスクの担当者を変更してください。担当者は表示名であり、ログインアカウントが増えるわけではありません。
+
+最初のタスクを追加すると、非公開の `tasks.csv` が自動作成されます。
 
 CSVの列は次のとおりです。
 
@@ -73,7 +64,7 @@ ID,Title,Description,Owner,Priority,Status,CreatedAt
 
 CSVを確認またはダウンロードする場合は、Netlifyの **Data & Storage → Blobs → task-manage-datateam-data → tasks.csv** を開きます。
 
-## 5. PWAとプッシュ通知
+## 4. PWAとプッシュ通知
 
 - 対応ブラウザーでは、画面上部のインストールボタンからアプリとして追加できます。
 - 通知ベルを押すと、ブラウザーの許可画面が表示されます。

@@ -7,9 +7,6 @@
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
 
-/config.js
-  Cache-Control: public, max-age=0, must-revalidate
-
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
 

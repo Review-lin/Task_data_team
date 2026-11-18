@@ -124,6 +124,8 @@ h1, h2, h3 { font-family: "Noto Serif JP", serif; }
 .count-badge { display: inline-grid; place-items: center; min-width: 25px; height: 25px; margin-left: 7px; border-radius: 999px; color: var(--green); background: var(--green-soft); font-family: "Noto Sans JP", sans-serif; font-size: .72rem; vertical-align: 3px; }
 .filters { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
 select { padding: 8px 32px 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--card); }
+.owner-manage-button { padding: 7px 11px; border: 1px solid var(--green); border-radius: 8px; color: var(--green); background: transparent; font-size: .78rem; font-weight: 600; }
+.owner-manage-button:hover { color: white; background: var(--green); }
 
 .task-list { display: grid; gap: 7px; }
 .task-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 13px 14px 12px 12px; border: 1px solid var(--line); border-left: 3px solid transparent; border-radius: 11px; background: rgba(255, 254, 250, .85); transition: border-color .2s, box-shadow .2s, opacity .2s; }
@@ -168,8 +170,8 @@ select { padding: 8px 32px 8px 10px; border: 1px solid var(--line); border-radiu
 
 dialog { color: var(--ink); }
 dialog::backdrop { background: rgba(19, 31, 25, .44); backdrop-filter: blur(3px); }
-.task-dialog, .confirm-dialog { width: min(calc(100% - 32px), 590px); padding: 0; border: 1px solid var(--line); border-radius: 20px; background: var(--card); box-shadow: var(--shadow); }
-.task-dialog form { padding: 22px; }
+.task-dialog, .owner-dialog, .confirm-dialog { width: min(calc(100% - 32px), 590px); padding: 0; border: 1px solid var(--line); border-radius: 20px; background: var(--card); box-shadow: var(--shadow); }
+.task-dialog form, .owner-dialog form { padding: 22px; }
 .dialog-header { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .dialog-header h2 { margin: 0; font-size: 2rem; }
 .field { display: grid; gap: 7px; }
@@ -188,6 +190,15 @@ dialog::backdrop { background: rgba(19, 31, 25, .44); backdrop-filter: blur(3px)
 .confirm-dialog h2 { margin-bottom: 9px; font-size: 1.75rem; }
 .confirm-dialog p { margin: 0; color: var(--muted); font-size: .86rem; line-height: 1.55; }
 .confirm-dialog .dialog-actions { justify-content: center; }
+.owner-create-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: end; gap: 8px; }
+.owner-create-row .primary-button, .owner-create-row .secondary-button { min-height: 43px; }
+.owner-help { margin: 10px 0 12px; color: var(--soft); font-size: .72rem; }
+.owner-list { display: grid; gap: 6px; max-height: min(360px, 45vh); overflow-y: auto; }
+.owner-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 43px; padding: 6px 8px 6px 12px; border: 1px solid var(--line); border-radius: 9px; background: #fafaf6; }
+.owner-row > span { min-width: 0; overflow-wrap: anywhere; font-size: .86rem; font-weight: 600; }
+.owner-row-actions { display: flex; flex: 0 0 auto; gap: 5px; }
+.owner-row-actions .text-button { font-size: .75rem; }
+.owner-row-actions .owner-delete-button { color: var(--red); }
 
 @media (max-width: 700px) {
   .auth-card { padding: 32px 22px 26px; }
@@ -205,10 +216,13 @@ dialog::backdrop { background: rgba(19, 31, 25, .44); backdrop-filter: blur(3px)
   .filters label { min-width: 0; }
   .filters select { width: 100%; }
   .filters select { padding: 7px 22px 7px 7px; font-size: .72rem; }
+  .owner-manage-button { grid-column: 1 / -1; }
   .task-card { grid-template-columns: auto minmax(0, 1fr); padding: 12px 11px; gap: 10px; }
   .task-actions { grid-column: 2; justify-content: flex-end; margin-top: -4px; }
   .field-grid { grid-template-columns: 1fr; }
   .task-dialog form { padding: 24px 20px; }
+  .owner-create-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .owner-create-row .field { grid-column: 1 / -1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
