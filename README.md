@@ -56,12 +56,14 @@ npx web-push generate-vapid-keys --json
 
 最初のタスクを追加すると、非公開の `tasks.csv` が自動作成されます。
 
-タスク行をクリックすると編集画面が開きます。各タスクには期限を設定でき、未完了の期限切れタスクは赤色で表示されます。「完了」ボタンで状態をすぐに切り替えられます。
+タスク行をクリックすると編集画面が開きます。各タスクには開始日と期限を設定でき、未完了の期限切れタスクは赤色で表示されます。「完了」ボタンで状態をすぐに切り替えられます。
+
+画面上部の「分析」では、担当者ごとのタスク数、完了数、完了率、期限超過数を確認できます。週別完了グラフは1週間、4週間、12週間から表示期間を選択できます。正確な完了日時はこの機能の公開後に完了したタスクから記録されます。
 
 CSVの列は次のとおりです。
 
 ```text
-ID,Title,Description,Owner,DueDate,Priority,Status,CreatedAt
+ID,Title,Description,Owner,StartDate,DueDate,Priority,Status,CreatedAt,CompletedAt
 ```
 
 CSVを確認またはダウンロードする場合は、Netlifyの **Data & Storage → Blobs → task-manage-datateam-data → tasks.csv** を開きます。

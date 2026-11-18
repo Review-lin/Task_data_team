@@ -18,6 +18,7 @@ export async function createTask(input) {
   const task = validateTask(input, false);
   task.id = randomUUID();
   task.createdAt = new Date().toISOString();
+  task.completedAt = task.status === "Completed" ? task.createdAt : "";
   return mutateTasks((tasks) => {
     if (tasks.length >= MAX_TASKS) throw new HttpError(409, "保存できるタスク数の上限に達しました。", "LIMIT_REACHED");
     tasks.push(task);
@@ -31,6 +32,9 @@ export async function updateTask(input) {
     const index = tasks.findIndex((item) => item.id === task.id);
     if (index === -1) throw new HttpError(404, "タスクが見つかりません。", "NOT_FOUND");
     task.createdAt = tasks[index].createdAt;
+    task.completedAt = task.status === "Completed"
+      ? tasks[index].completedAt || new Date().toISOString()
+      : "";
     tasks[index] = task;
     return task;
   });

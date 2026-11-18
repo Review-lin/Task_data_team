@@ -55,12 +55,16 @@
 
       <section id="app-view" class="app-view" hidden>
         <header class="topbar">
-          <a href="#" class="brand" aria-label="Task Manage DataTeam ホーム">
+          <a id="brand-home" href="#tasks" class="brand" aria-label="Task Manage DataTeam ホーム">
             <span class="brand-mark brand-mark-small" aria-hidden="true">
               <span></span><span></span><span></span>
             </span>
             <span>Task Manage DataTeam</span>
           </a>
+          <nav class="app-nav" aria-label="メインメニュー">
+            <button id="tasks-nav-button" class="app-nav-button is-active" type="button">タスク</button>
+            <button id="analytics-nav-button" class="app-nav-button" type="button">分析</button>
+          </nav>
           <div class="account">
             <div class="header-actions">
               <button id="install-button" class="icon-button" type="button" title="アプリをインストール" aria-label="アプリをインストール" hidden>
@@ -80,7 +84,7 @@
           </div>
         </header>
 
-        <div class="app-content">
+        <div id="tasks-page" class="app-content">
           <div class="heading-row">
             <div>
               <p id="today-label" class="eyebrow"></p>
@@ -148,6 +152,50 @@
             </div>
           </section>
         </div>
+
+        <section id="analytics-page" class="app-content analytics-page" aria-labelledby="analytics-heading" hidden>
+          <div class="heading-row analytics-heading-row">
+            <div>
+              <p class="eyebrow">チーム分析</p>
+              <h1 id="analytics-heading">タスク分析</h1>
+              <p class="subheading">担当者ごとの進捗と週ごとの完了数を確認できます。</p>
+            </div>
+            <label class="analytics-range-field">
+              <span>表示期間</span>
+              <select id="analytics-weeks">
+                <option value="1">1週間</option>
+                <option value="4" selected>4週間</option>
+                <option value="12">12週間</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="analytics-summary" aria-label="全体集計">
+            <article class="summary-card"><span>全タスク</span><strong id="analytics-total">0</strong><small>件</small></article>
+            <article class="summary-card"><span>完了</span><strong id="analytics-completed">0</strong><small>件</small></article>
+            <article class="summary-card"><span>完了率</span><strong id="analytics-rate">0%</strong><small>全期間</small></article>
+            <article class="summary-card"><span>期限超過</span><strong id="analytics-overdue">0</strong><small>件</small></article>
+          </div>
+
+          <div class="analytics-grid">
+            <section class="analytics-panel weekly-panel" aria-labelledby="weekly-chart-heading">
+              <div class="panel-heading">
+                <div><p class="eyebrow">完了の推移</p><h2 id="weekly-chart-heading">週別完了タスク</h2></div>
+                <span id="weekly-chart-total">期間内 0件</span>
+              </div>
+              <div id="weekly-chart" class="weekly-chart" role="img" aria-label="週別の完了タスク数"></div>
+              <p class="analytics-note">この機能の公開後に完了したタスクを集計します。</p>
+            </section>
+
+            <section class="analytics-panel owner-panel" aria-labelledby="owner-performance-heading">
+              <div class="panel-heading">
+                <div><p class="eyebrow">担当者別</p><h2 id="owner-performance-heading">パフォーマンス</h2></div>
+              </div>
+              <div class="owner-table-head" aria-hidden="true"><span>担当者</span><span>タスク</span><span>完了</span><span>進捗</span></div>
+              <div id="owner-performance" class="owner-performance"></div>
+            </section>
+          </div>
+        </section>
       </section>
     </main>
 
@@ -192,6 +240,10 @@
               <option value="Medium" selected>中</option>
               <option value="High">高</option>
             </select>
+          </label>
+          <label class="field">
+            <span>開始日</span>
+            <input id="task-start-date" type="date" />
           </label>
           <label class="field">
             <span>期限</span>

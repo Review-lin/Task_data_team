@@ -49,10 +49,12 @@ test("CSV round-trips commas, quotes, newlines, and formula-like text", () => {
     title: "=SUM(1,2)",
     description: "First line, with comma\n\"Second line\"",
     owner: "Me",
+    startDate: "2026-11-18",
     dueDate: "2026-11-30",
     priority: "High",
     status: "Pending",
     createdAt: "2026-11-18T00:00:00.000Z",
+    completedAt: "",
   };
   const csv = serializeCsv([task]);
   assert.match(csv, /\t=SUM/);
@@ -62,6 +64,16 @@ test("CSV round-trips commas, quotes, newlines, and formula-like text", () => {
 test("legacy CSV files load with an empty deadline", () => {
   const csv = '"ID","Title","Description","Owner","Priority","Status","CreatedAt"\r\n"task-1","Task","","Me","Medium","Pending","2026-11-18T00:00:00.000Z"\r\n';
   assert.equal(parseTasks(csv)[0].dueDate, "");
+  assert.equal(parseTasks(csv)[0].startDate, "");
+  assert.equal(parseTasks(csv)[0].completedAt, "");
+});
+
+test("deadline CSV files load with empty analytics timestamps", () => {
+  const csv = '"ID","Title","Description","Owner","DueDate","Priority","Status","CreatedAt"\r\n"task-1","Task","","Me","2026-11-30","Medium","Completed","2026-11-18T00:00:00.000Z"\r\n';
+  const task = parseTasks(csv)[0];
+  assert.equal(task.dueDate, "2026-11-30");
+  assert.equal(task.startDate, "");
+  assert.equal(task.completedAt, "");
 });
 
 test("task validation enforces required fields and enums", () => {
@@ -69,4 +81,5 @@ test("task validation enforces required fields and enums", () => {
   assert.throws(() => validateTask({ title: "Task", owner: "Me", priority: "Urgent" }, false), HttpError);
   assert.throws(() => validateTask({ owner: "Me" }, false), HttpError);
   assert.throws(() => validateTask({ title: "Task", owner: "Me", dueDate: "2026-02-30" }, false), HttpError);
+  assert.throws(() => validateTask({ title: "Task", owner: "Me", startDate: "2026-12-01", dueDate: "2026-11-30" }, false), HttpError);
 });

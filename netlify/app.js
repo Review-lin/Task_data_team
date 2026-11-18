@@ -24,7 +24,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function cacheElements() {
   [
-    "auth-view", "app-view", "login-form", "login-username", "login-password",
+    "auth-view", "app-view", "brand-home", "tasks-nav-button", "analytics-nav-button",
+    "tasks-page", "analytics-page", "login-form", "login-username", "login-password",
     "login-button", "auth-message", "user-name", "signout-button", "install-button",
     "notification-button", "today-label", "day-period",
     "progress-copy", "progress-percent", "progress-count", "progress-bar",
@@ -32,9 +33,11 @@ function cacheElements() {
     "add-task-button", "empty-add-button", "status-filter", "priority-filter", "owner-filter", "manage-owners-button",
     "loading-overlay", "loading-text", "toast-region", "task-dialog",
     "task-form", "dialog-title", "task-id", "task-title", "task-description",
-    "task-owner", "task-priority", "task-deadline", "title-error", "close-dialog",
+    "task-owner", "task-priority", "task-start-date", "task-deadline", "title-error", "close-dialog",
     "cancel-task", "owner-dialog", "owner-form", "owner-name", "save-owner",
     "cancel-owner-edit", "close-owner-dialog", "owner-list", "delete-dialog", "cancel-delete", "confirm-delete",
+    "analytics-weeks", "analytics-total", "analytics-completed", "analytics-rate", "analytics-overdue",
+    "weekly-chart", "weekly-chart-total", "owner-performance",
   ].forEach((id) => { el[toCamel(id)] = document.getElementById(id); });
 }
 
@@ -43,6 +46,10 @@ function bindEvents() {
   el.signoutButton.addEventListener("click", signOut);
   el.installButton.addEventListener("click", installPwa);
   el.notificationButton.addEventListener("click", togglePushNotifications);
+  el.brandHome.addEventListener("click", (event) => { event.preventDefault(); showPage("tasks"); });
+  el.tasksNavButton.addEventListener("click", () => showPage("tasks"));
+  el.analyticsNavButton.addEventListener("click", () => showPage("analytics"));
+  el.analyticsWeeks.addEventListener("change", renderAnalytics);
   el.addTaskButton.addEventListener("click", () => openTaskDialog());
   el.emptyAddButton.addEventListener("click", () => openTaskDialog());
   el.closeDialog.addEventListener("click", closeTaskDialog);
@@ -64,6 +71,9 @@ function bindEvents() {
   el.taskDialog.addEventListener("click", closeOnBackdrop);
   el.ownerDialog.addEventListener("click", closeOnBackdrop);
   el.deleteDialog.addEventListener("click", closeOnBackdrop);
+  window.addEventListener("hashchange", () => {
+    if (state.user) showPage(window.location.hash === "#analysis" ? "analytics" : "tasks", false);
+  });
 }
 
 async function checkSession() {
@@ -125,6 +135,7 @@ function showApp() {
   el.authView.hidden = true;
   el.appView.hidden = false;
   renderTasks();
+  showPage(window.location.hash === "#analysis" ? "analytics" : "tasks", false);
   refreshNotificationState();
 }
 
@@ -236,6 +247,7 @@ async function saveTask(event) {
     title,
     description: el.taskDescription.value.trim(),
     owner: el.taskOwner.value,
+    startDate: el.taskStartDate.value,
     dueDate: el.taskDeadline.value,
     priority: el.taskPriority.value,
     status: existing?.status || "Pending",
@@ -340,6 +352,129 @@ function renderTasks() {
     : "最初のタスクを追加しましょう。";
   el.emptyAddButton.hidden = hasFilters;
   updateProgress();
+  renderAnalytics();
+}
+
+function showPage(page, updateHash = true) {
+  const analytics = page === "analytics";
+  el.tasksPage.hidden = analytics;
+  el.analyticsPage.hidden = !analytics;
+  el.tasksNavButton.classList.toggle("is-active", !analytics);
+  el.analyticsNavButton.classList.toggle("is-active", analytics);
+  el.tasksNavButton.setAttribute("aria-current", analytics ? "false" : "page");
+  el.analyticsNavButton.setAttribute("aria-current", analytics ? "page" : "false");
+  if (analytics) renderAnalytics();
+  if (updateHash) window.history.replaceState(null, "", analytics ? "#analysis" : "#tasks");
+}
+
+function renderAnalytics() {
+  if (!el.analyticsTotal) return;
+  const total = state.tasks.length;
+  const completed = state.tasks.filter((task) => task.status === "Completed").length;
+  const today = localDateKey(new Date());
+  const overdue = state.tasks.filter((task) => task.status !== "Completed" && task.dueDate && task.dueDate < today).length;
+  el.analyticsTotal.textContent = String(total);
+  el.analyticsCompleted.textContent = String(completed);
+  el.analyticsRate.textContent = `${total ? Math.round((completed / total) * 100) : 0}%`;
+  el.analyticsOverdue.textContent = String(overdue);
+  renderOwnerPerformance();
+  renderWeeklyChart();
+}
+
+function renderOwnerPerformance() {
+  const names = [...new Set([
+    ...state.owners.map((owner) => owner.name),
+    ...state.tasks.map((task) => task.owner).filter(Boolean),
+  ])];
+  const stats = names.map((name) => {
+    const tasks = state.tasks.filter((task) => task.owner === name);
+    const done = tasks.filter((task) => task.status === "Completed").length;
+    return { name, total: tasks.length, done, rate: tasks.length ? Math.round((done / tasks.length) * 100) : 0 };
+  }).sort((a, b) => b.rate - a.rate || b.done - a.done || a.name.localeCompare(b.name, "ja"));
+
+  if (!stats.length) {
+    const empty = document.createElement("p");
+    empty.className = "analytics-empty";
+    empty.textContent = "担当者を追加すると分析が表示されます。";
+    el.ownerPerformance.replaceChildren(empty);
+    return;
+  }
+
+  el.ownerPerformance.replaceChildren(...stats.map((stat) => {
+    const row = document.createElement("div");
+    row.className = "owner-performance-row";
+    const name = document.createElement("strong");
+    name.textContent = stat.name;
+    const total = document.createElement("span");
+    total.textContent = `${stat.total}件`;
+    const done = document.createElement("span");
+    done.textContent = `${stat.done}件`;
+    const progress = document.createElement("div");
+    progress.className = "owner-progress";
+    const label = document.createElement("span");
+    label.textContent = `${stat.rate}%`;
+    const track = document.createElement("span");
+    track.className = "owner-progress-track";
+    const bar = document.createElement("span");
+    bar.className = "owner-progress-bar";
+    bar.style.width = `${stat.rate}%`;
+    track.append(bar);
+    progress.append(label, track);
+    row.append(name, total, done, progress);
+    return row;
+  }));
+}
+
+function renderWeeklyChart() {
+  const weeks = Math.max(1, Math.min(12, Number.parseInt(el.analyticsWeeks.value, 10) || 1));
+  const currentWeek = startOfWeek(new Date());
+  const firstWeek = new Date(currentWeek);
+  firstWeek.setDate(firstWeek.getDate() - ((weeks - 1) * 7));
+  const buckets = Array.from({ length: weeks }, (_, index) => {
+    const start = new Date(firstWeek);
+    start.setDate(firstWeek.getDate() + (index * 7));
+    const end = new Date(start);
+    end.setDate(start.getDate() + 7);
+    return { start, end, count: 0 };
+  });
+
+  for (const task of state.tasks) {
+    if (task.status !== "Completed" || !task.completedAt) continue;
+    const completedAt = new Date(task.completedAt);
+    if (Number.isNaN(completedAt.getTime())) continue;
+    const bucket = buckets.find((item) => completedAt >= item.start && completedAt < item.end);
+    if (bucket) bucket.count += 1;
+  }
+
+  const maximum = Math.max(1, ...buckets.map((bucket) => bucket.count));
+  const periodTotal = buckets.reduce((sum, bucket) => sum + bucket.count, 0);
+  el.weeklyChartTotal.textContent = `期間内 ${periodTotal}件`;
+  el.weeklyChart.setAttribute("aria-label", `${weeks}週間の完了タスクは${periodTotal}件です。`);
+  el.weeklyChart.style.setProperty("--chart-columns", String(weeks));
+  el.weeklyChart.replaceChildren(...buckets.map((bucket) => {
+    const column = document.createElement("div");
+    column.className = "weekly-column";
+    const value = document.createElement("strong");
+    value.textContent = String(bucket.count);
+    const barArea = document.createElement("div");
+    barArea.className = "weekly-bar-area";
+    const bar = document.createElement("span");
+    bar.className = "weekly-bar";
+    bar.style.height = `${Math.max(bucket.count ? 8 : 2, (bucket.count / maximum) * 100)}%`;
+    barArea.append(bar);
+    const label = document.createElement("span");
+    label.className = "weekly-label";
+    label.textContent = `${bucket.start.getMonth() + 1}/${bucket.start.getDate()}`;
+    column.append(value, barArea, label);
+    return column;
+  }));
+}
+
+function startOfWeek(date) {
+  const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const daysFromMonday = (result.getDay() + 6) % 7;
+  result.setDate(result.getDate() - daysFromMonday);
+  return result;
 }
 
 function createTaskCard(task) {
@@ -365,9 +500,10 @@ function createTaskCard(task) {
   meta.className = "task-meta";
   meta.append(makePill(`担当 · ${task.owner || "未設定"}`, "owner"));
   meta.append(makePill(priorityLabel(task.priority), `priority-${task.priority.toLowerCase()}`));
+  if (task.startDate) meta.append(makePill(`開始 · ${formatShortDate(task.startDate)}`));
   if (task.dueDate) {
     const overdue = task.status !== "Completed" && task.dueDate < localDateKey(new Date());
-    meta.append(makePill(`期限 · ${formatDueDate(task.dueDate)}`, overdue ? "overdue" : ""));
+    meta.append(makePill(`期限 · ${formatShortDate(task.dueDate)}`, overdue ? "overdue" : ""));
   }
   main.append(meta);
 
@@ -413,6 +549,7 @@ function openTaskDialog(task = null) {
   el.taskId.value = task?.id || "";
   el.taskTitle.value = task?.title || "";
   el.taskDescription.value = task?.description || "";
+  el.taskStartDate.value = task?.startDate || (task ? "" : localDateKey(new Date()));
   el.taskDeadline.value = task?.dueDate || "";
   ensureOwnerOption(task?.owner);
   el.taskOwner.value = task?.owner || state.owners[0]?.name || "";
@@ -481,7 +618,7 @@ function localDateKey(date) {
   return `${year}-${month}-${day}`;
 }
 
-function formatDueDate(value) {
+function formatShortDate(value) {
   const [year, month, day] = value.split("-").map(Number);
   return new Intl.DateTimeFormat("ja-JP", { month: "short", day: "numeric" }).format(new Date(year, month - 1, day));
 }
