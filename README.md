@@ -42,7 +42,7 @@ openssl rand -base64 48
 4. 次の3項目を追加し、対象範囲に **Functions** を含めます。
 
 ```text
-AUTH_USERNAME=review
+AUTH_USERNAME=Netlifyで設定する非公開ユーザー名
 AUTH_PASSWORD=12文字以上の非公開パスワード
 SESSION_SECRET=opensslで作成した32文字以上の秘密値
 ```
@@ -53,7 +53,7 @@ SESSION_SECRET=opensslで作成した32文字以上の秘密値
 
 ## 4. ログインしてCSVを作成する
 
-デプロイ先を開き、ユーザー名 `review` と設定したパスワードでログインします。最初のタスクを追加すると、非公開の `tasks.csv` が自動作成されます。
+デプロイ先を開き、Netlifyに設定したユーザー名とパスワードでログインします。最初のタスクを追加すると、非公開の `tasks.csv` が自動作成されます。
 
 CSVの列は次のとおりです。
 
