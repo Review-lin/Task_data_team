@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#f7f7f2" />
+    <title>Task Manage DataTeam</title>
+    <meta
+      name="description"
+      content="データチーム専用の安全なタスク管理アプリです。"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script src="config.js"></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
+
+    <main class="site-shell">
+      <section id="auth-view" class="auth-view" aria-labelledby="welcome-title">
+        <div class="auth-card">
+          <div class="brand-mark" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <p class="eyebrow">データチーム専用</p>
+          <h1 id="welcome-title">仕事を整理して、<br />次の一歩へ。</h1>
+          <p class="auth-copy">
+            データチームのタスクを、わかりやすく安全に管理します。
+          </p>
+          <form id="login-form" class="login-form" novalidate>
+            <label class="login-field">
+              <span>ユーザー名</span>
+              <input id="login-username" name="username" type="text" maxlength="100" autocomplete="username" required />
+            </label>
+            <label class="login-field">
+              <span>パスワード</span>
+              <input id="login-password" name="password" type="password" maxlength="256" autocomplete="current-password" required />
+            </label>
+            <button id="login-button" class="primary-button login-button" type="submit">ログイン</button>
+          </form>
+          <p id="auth-message" class="auth-message" role="alert"></p>
+          <p class="privacy-note">
+            <span aria-hidden="true">&#128274;</span> 認証情報はサーバー内だけで安全に確認されます。
+          </p>
+        </div>
+      </section>
+
+      <section id="app-view" class="app-view" hidden>
+        <header class="topbar">
+          <a href="#" class="brand" aria-label="Task Manage DataTeam ホーム">
+            <span class="brand-mark brand-mark-small" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </span>
+            <span>Task Manage DataTeam</span>
+          </a>
+          <div class="account">
+            <div class="account-copy">
+              <strong id="user-name">ログイン中</strong>
+              <span>データチーム専用</span>
+            </div>
+            <button id="signout-button" class="icon-button" type="button" title="ログアウト" aria-label="ログアウト">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3m9-9h6a2 2 0 012 2v14a2 2 0 01-2 2h-6"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <div class="app-content">
+          <div class="heading-row">
+            <div>
+              <p id="today-label" class="eyebrow"></p>
+              <h1><span id="day-period">今日も進めましょう。</span></h1>
+              <p id="progress-copy" class="subheading">タスクを読み込んでいます…</p>
+            </div>
+            <button id="add-task-button" class="primary-button" type="button">
+              <span aria-hidden="true">+</span> タスクを追加
+            </button>
+          </div>
+
+          <section class="progress-panel" aria-labelledby="progress-heading">
+            <div class="progress-head">
+              <div>
+                <span id="progress-heading">全体の進捗</span>
+                <strong id="progress-percent">0%</strong>
+              </div>
+              <span id="progress-count">完了 0 / 0 件</span>
+            </div>
+            <div class="progress-track" aria-hidden="true">
+              <div id="progress-bar" class="progress-bar"></div>
+            </div>
+          </section>
+
+          <section class="task-section" aria-labelledby="tasks-heading">
+            <div class="task-toolbar">
+              <h2 id="tasks-heading">タスク一覧 <span id="task-total" class="count-badge">0</span></h2>
+              <div class="filters" aria-label="タスクの絞り込み">
+                <label>
+                  <span class="sr-only">状態で絞り込む</span>
+                  <select id="status-filter">
+                    <option value="All">すべての状態</option>
+                    <option value="Pending">未完了</option>
+                    <option value="Completed">完了</option>
+                  </select>
+                </label>
+                <label>
+                  <span class="sr-only">優先度で絞り込む</span>
+                  <select id="priority-filter">
+                    <option value="All">すべての優先度</option>
+                    <option value="High">優先度：高</option>
+                    <option value="Medium">優先度：中</option>
+                    <option value="Low">優先度：低</option>
+                  </select>
+                </label>
+                <label>
+                  <span class="sr-only">担当者で絞り込む</span>
+                  <select id="owner-filter">
+                    <option value="All">すべての担当者</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div id="task-list" class="task-list" aria-live="polite"></div>
+
+            <div id="empty-state" class="empty-state" hidden>
+              <div class="empty-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M9 11l2 2 4-4m5 3a8 8 0 11-16 0 8 8 0 0116 0z"/></svg>
+              </div>
+              <h3 id="empty-title">タスクはありません。</h3>
+              <p id="empty-copy">最初のタスクを追加しましょう。</p>
+              <button id="empty-add-button" class="text-button" type="button">タスクを作成 <span aria-hidden="true">→</span></button>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <div id="loading-overlay" class="loading-overlay" hidden aria-live="polite" aria-label="読み込み中">
+      <div class="spinner"></div>
+      <span id="loading-text">処理中…</span>
+    </div>
+
+    <div id="toast-region" class="toast-region" aria-live="assertive" aria-atomic="true"></div>
+
+    <dialog id="task-dialog" class="task-dialog">
+      <form id="task-form" method="dialog" novalidate>
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">タスクを整理</p>
+            <h2 id="dialog-title">タスクを追加</h2>
+          </div>
+          <button id="close-dialog" class="icon-button" type="button" aria-label="閉じる">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <input id="task-id" type="hidden" />
+        <label class="field full-field">
+          <span>タイトル <b aria-hidden="true">*</b></span>
+          <input id="task-title" type="text" maxlength="150" required placeholder="対応する内容を入力" autocomplete="off" />
+          <small id="title-error" class="field-error"></small>
+        </label>
+        <label class="field full-field">
+          <span>説明</span>
+          <textarea id="task-description" maxlength="2000" rows="4" placeholder="補足や詳細を入力（任意）"></textarea>
+        </label>
+        <div class="field-grid">
+          <label class="field">
+            <span>担当者</span>
+            <select id="task-owner" required></select>
+          </label>
+          <label class="field">
+            <span>優先度</span>
+            <select id="task-priority">
+              <option value="Low">低</option>
+              <option value="Medium" selected>中</option>
+              <option value="High">高</option>
+            </select>
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button id="cancel-task" class="secondary-button" type="button">キャンセル</button>
+          <button class="primary-button" type="submit">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="delete-dialog" class="confirm-dialog">
+      <form method="dialog">
+        <div class="confirm-icon" aria-hidden="true">!</div>
+        <h2>このタスクを削除しますか？</h2>
+        <p>この操作は取り消せません。タスクは完全に削除されます。</p>
+        <div class="dialog-actions">
+          <button id="cancel-delete" class="secondary-button" value="cancel">削除しない</button>
+          <button id="confirm-delete" class="danger-button" value="confirm">削除する</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>

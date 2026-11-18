@@ -1,0 +1,12 @@
+{
+  "name": "task-manage-datateam",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node scripts/check-syntax.mjs && node --test"
+  },
+  "dependencies": {
+    "@netlify/blobs": "11.1.9"
+  }
+}
