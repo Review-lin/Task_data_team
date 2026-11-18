@@ -1,0 +1,71 @@
+import assert from "node:assert/strict";
+import { randomBytes, scrypt as scryptCallback } from "node:crypto";
+import { promisify } from "node:util";
+import test from "node:test";
+import {
+  clearSessionCookie,
+  createSessionToken,
+  requireSession,
+  sessionCookie,
+  verifyLogin,
+} from "../netlify-functions/_shared/auth.mjs";
+import { parseTasks, serializeCsv, validateTask } from "../netlify-functions/_shared/csv-codec.mjs";
+import { HttpError, requireSameOrigin } from "../netlify-functions/_shared/http.mjs";
+
+const scrypt = promisify(scryptCallback);
+
+test.before(async () => {
+  const salt = randomBytes(24);
+  const hash = await scrypt("correct horse battery staple", salt, 64);
+  process.env.AUTH_USERNAME = "owner";
+  process.env.AUTH_PASSWORD_HASH = `scrypt$${salt.toString("base64url")}$${hash.toString("base64url")}`;
+  process.env.SESSION_SECRET = "test-only-session-secret-that-is-long-enough";
+});
+
+test("password verification accepts only the exact credentials", async () => {
+  assert.equal(await verifyLogin("owner", "correct horse battery staple"), true);
+  assert.equal(await verifyLogin("Owner", "correct horse battery staple"), false);
+  assert.equal(await verifyLogin("owner", "wrong password"), false);
+});
+
+test("session cookie is HttpOnly and signed tokens reject tampering", () => {
+  const request = new Request("https://tasks.example.com/api/session");
+  const token = createSessionToken();
+  const cookie = sessionCookie(token, request);
+  assert.match(cookie, /HttpOnly/);
+  assert.match(cookie, /SameSite=Strict/);
+  assert.match(cookie, /; Secure/);
+  const authenticated = new Request(request.url, { headers: { Cookie: cookie.split(";")[0] } });
+  assert.equal(requireSession(authenticated).username, "owner");
+
+  const tampered = new Request(request.url, { headers: { Cookie: `daymark_session=${token}x` } });
+  assert.throws(() => requireSession(tampered), (error) => error instanceof HttpError && error.status === 401);
+  assert.match(clearSessionCookie(request), /Max-Age=0/);
+});
+
+test("same-origin protection rejects foreign and missing origins", () => {
+  assert.doesNotThrow(() => requireSameOrigin(new Request("https://tasks.example.com/api/tasks", { headers: { Origin: "https://tasks.example.com" } })));
+  assert.throws(() => requireSameOrigin(new Request("https://tasks.example.com/api/tasks", { headers: { Origin: "https://evil.example" } })), HttpError);
+  assert.throws(() => requireSameOrigin(new Request("https://tasks.example.com/api/tasks")), HttpError);
+});
+
+test("CSV round-trips commas, quotes, newlines, and formula-like text", () => {
+  const task = {
+    id: "task-1",
+    title: "=SUM(1,2)",
+    description: "First line, with comma\n\"Second line\"",
+    owner: "Me",
+    priority: "High",
+    status: "Pending",
+    createdAt: "2026-11-18T00:00:00.000Z",
+  };
+  const csv = serializeCsv([task]);
+  assert.match(csv, /\t=SUM/);
+  assert.deepEqual(parseTasks(csv), [task]);
+});
+
+test("task validation enforces required fields and enums", () => {
+  assert.equal(validateTask({ title: "Task", owner: "Me", priority: "Low", status: "Pending" }, false).title, "Task");
+  assert.throws(() => validateTask({ title: "Task", owner: "Me", priority: "Urgent" }, false), HttpError);
+  assert.throws(() => validateTask({ owner: "Me" }, false), HttpError);
+});
